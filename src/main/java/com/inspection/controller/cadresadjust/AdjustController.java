@@ -7,6 +7,9 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.inspection.entity.cadresadjust.AdjustMain;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -27,18 +30,14 @@ import org.jeecgframework.platform.constant.Globals;
 import org.jeecgframework.web.common.hqlsearch.HqlGenerateUtil;
 import org.jeecgframework.web.system.controller.BaseController;
 import org.jeecgframework.web.system.entity.TSDepart;
-import org.jeecgframework.web.system.entity.TSTypegroup;
 import org.jeecgframework.web.system.entity.TSUser;
 import org.jeecgframework.web.system.service.SystemService;
 
-import com.inspection.entity.backbone.BackboneEntity;
 import com.inspection.entity.cadresadjust.AdjustAssessmentEntity;
 import com.inspection.entity.cadresadjust.AdjustAuditingEntity;
 import com.inspection.entity.cadresadjust.AdjustEntity;
 import com.inspection.entity.cadresadjust.AdjustPerformanceEntity;
 import com.inspection.entity.cadresadjust.AdjustRecommendEntity;
-import com.inspection.entity.leave.SoldierLeaveEntity;
-import com.inspection.entity.officerleave.OfficerLeaveEntity;
 import com.inspection.pojo.AdjustMainPage;
 import com.inspection.service.cadresadjust.AdjustServiceI;
 
@@ -91,6 +90,7 @@ public class AdjustController extends BaseController {
 			}
 		}
 		request.setAttribute("departList", list);
+		request.setAttribute("currentDepart",SessionUtils.getCurrentUser().getCurrentDepart());
 		return new ModelAndView("com/inspection/adjust/adjustList");
 	}
 
@@ -109,6 +109,10 @@ public class AdjustController extends BaseController {
 		CriteriaQuery cq = new CriteriaQuery(AdjustEntity.class, dataGrid);
 		// 默认查询当前用户所属部门下数据
 		String departId = adjust.getDepartId();
+		if (StringUtils.isEmpty(request.getParameter("search"))){
+			departId = request.getParameter("currentDepartId");
+		}
+
 		/*
 		 * boolean isAdmin = SessionUtils.isAdminRole("admin"); boolean isManager =
 		 * SessionUtils.isAdminRole("manager");
@@ -288,7 +292,6 @@ public class AdjustController extends BaseController {
 	 * 
 	 * @Title: addorupdateOperate
 	 * @Description: 保存平时表现和审批结果
-	 * @param officerLeave
 	 * @param req
 	 * @return AjaxJson
 	 * @author yxd
@@ -340,186 +343,7 @@ public class AdjustController extends BaseController {
 		return result;
 	}
 
-	/**
-	 * 表彰奖励处理详情
-	 * 
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMain")
-	public ModelAndView viewMain(AdjustEntity adjustEntity, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		/*
-		 * if (StringUtils.isNotEmpty(id)) { officerLeave =
-		 * officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-		 * req.setAttribute("officerLeavePage", officerLeave); }
-		 */
-		TSTypegroup typegroup = systemService.findUniqueByProperty(TSTypegroup.class, "typegroupcode", "bx_type");
-		if (typegroup != null) {
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		TSTypegroup pxgroup = systemService.findUniqueByProperty(TSTypegroup.class, "typegroupcode", "px_type");
-		if (pxgroup != null) {
-			req.setAttribute("pxList", pxgroup.getTSTypes());
-		}
-		req.setAttribute("residuald", id);
-		return new ModelAndView("com/inspection/adjust/main");
-	}
-
-	/**
-	 * 表彰奖励个人基本信息详情
-	 * 
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMyselfInfo")
-	public ModelAndView viewMyselfInfo(AdjustEntity adjust, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			adjust = adjustService.findEntity(AdjustEntity.class, id);
-			req.setAttribute("adjustPage", adjust);
-		}
-		// 表彰奖励-提名类型
-		TSTypegroup typegroup = systemService.findUniqueByProperty(TSTypegroup.class, "typegroupcode", "nor_type");
-		if (typegroup != null) {
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		if (StringUtils.isEmpty(funname)) {
-			return new ModelAndView("com/inspection/adjust/myselfInfo");
-		} else {
-			return new ModelAndView("com/inspection/adjust/myselfInfoDetial");
-
-		}
-	}
-
-	/**
-	 * 表彰奖励个人平时表现详情
-	 * 
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewPerformance")
-	public ModelAndView viewPerformance(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<AdjustPerformanceEntity> lists = adjustService.findAllPerformances(id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("residualId", id);
-		}
-
-		TSTypegroup typegroup = systemService.findUniqueByProperty(TSTypegroup.class, "typegroupcode", "bx_type");
-		if (typegroup != null) {
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		if (StringUtils.isEmpty(funname)) {
-			return new ModelAndView("com/inspection/adjust/performance");
-		} else {
-			return new ModelAndView("com/inspection/adjust/performanceDetial");
-
-		}
-
-	}
-
-	/**
-	 * 表彰奖励上级意见结果详情
-	 * 
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewAuditing")
-	public ModelAndView viewAuditing(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<AdjustAuditingEntity> lists = adjustService.findAllAudits(id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		if (StringUtils.isEmpty(funname)) {
-			return new ModelAndView("com/inspection/adjust/auditing");
-		} else {
-			return new ModelAndView("com/inspection/adjust/auditingDetial");
-		}
-
-	}
-
-	/**
-	 * 民族评议/推荐
-	 * 
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewResidualRecommend")
-	public ModelAndView viewResidualRecommend(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<AdjustRecommendEntity> lists = adjustService.findAllRecommends(id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		if (StringUtils.isEmpty(funname)) {
-			return new ModelAndView("com/inspection/adjust/adjustRecommend");
-		} else {
-			return new ModelAndView("com/inspection/adjust/adjustRecommendDetial");
-		}
-
-	}
-
-	/**
-	 * 考核结果
-	 * 
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewAssessment")
-	public ModelAndView viewAssessment(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<AdjustAssessmentEntity> lists = adjustService.findAlltAssessments(id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		TSTypegroup pxgroup = systemService.findUniqueByProperty(TSTypegroup.class, "typegroupcode", "px_type");
-		if (pxgroup != null) {
-			req.setAttribute("pxList", pxgroup.getTSTypes());
-		}
-		if (StringUtils.isEmpty(funname)) {
-			return new ModelAndView("com/inspection/adjust/assessment");
-		} else {
-			return new ModelAndView("com/inspection/adjust/assessmentDetial");
-		}
-
-	}
-
-	/**
-	 * 表彰奖励处理详情
-	 * 
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMainDetial")
-	public ModelAndView viewMainDetial(AdjustEntity adjust, HttpServletRequest req) {
-		String id = StringUtils.isNotEmpty(req.getParameter("id")) ? req.getParameter("id") : adjust.getId();
-
-		/*
-		 * if (StringUtils.isNotEmpty(id)) { officerLeave =
-		 * officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-		 * req.setAttribute("officerLeavePage", officerLeave); }
-		 */
-		req.setAttribute("residualId", id);
-		return new ModelAndView("com/inspection/adjust/mainDetial");
-	}
-
-	@RequestMapping(params = "viewDetailMain")
+/*	@RequestMapping(params = "viewDetailMain")
 	public ModelAndView viewDetailMain(AdjustEntity adjust, HttpServletRequest req) {
 		String id = req.getParameter("id");
 		AdjustMainPage result = new AdjustMainPage();
@@ -543,12 +367,41 @@ public class AdjustController extends BaseController {
 		String isView = req.getParameter("isView");
 		req.setAttribute("isView", isView);
 		req.setAttribute("id", id);
-		/*
-		 * TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,
-		 * "typegroupcode","grbx"); req.setAttribute("typeList",
-		 * typegroup.getTSTypes());
-		 */
-
 		return new ModelAndView("com/inspection/adjust/viewDetailMain");
+	}*/
+
+	@RequestMapping(params = "viewDetailMain")
+	public ModelAndView viewDetailMain(AdjustEntity adjust, HttpServletRequest req) {
+		String id = req.getParameter("id");
+		AdjustMain result = new AdjustMain();
+		if (StringUtils.isNotEmpty(id)) {
+			result = adjustService.findEntity(AdjustMain.class, id);
+			adjust = adjustService.findEntity(AdjustEntity.class, id);
+			if(result == null){
+				result = new AdjustMain();
+			}
+			result.setAdjust(adjust);
+			result.setJiaJianXiang(JSONArray.toList(JSONArray.fromObject(result.getJiaJianString())));
+			req.setAttribute("adjustPage", result);
+		}
+        String isView = req.getParameter("isView");
+        if(isView.equals("true")){
+            return new ModelAndView("com/inspection/adjust/viewDetailMain");
+        } else {
+            return new ModelAndView("com/inspection/adjust/processAdjust");
+        }
 	}
+
+	// 干部配备调整-处理页面
+    @RequestMapping(params = "modifyProcess")
+    @ResponseBody
+    public AjaxJson modifyProcess(AdjustMain adjustMain, HttpServletRequest req) {
+        AjaxJson result = new AjaxJson();
+        String id = req.getParameter("id");
+        adjustMain.setId(id);
+		adjustMain.setJiaJianString(JSONArray.fromObject(adjustMain.getJiaJianXiang()).toString());
+        adjustService.saveOrUpdate(adjustMain);
+        result.setMsg("保存成功");
+        return result;
+    }
 }

@@ -1,4 +1,6 @@
 package com.inspection.controller.evaluation;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -6,12 +8,18 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.inspection.entity.JunShiXunLian;
+import com.inspection.entity.evaluation.EvaluationResidualMain;
+import net.sf.json.JSONArray;
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.servlet.ModelAndView;
 
 import org.jeecgframework.core.util.BeanPropertyUtils;
@@ -33,9 +41,6 @@ import com.inspection.entity.evaluation.EvaluationResidualAuditingEntity;
 import com.inspection.entity.evaluation.EvaluationResidualEntity;
 import com.inspection.entity.evaluation.EvaluationResidualPerformanceEntity;
 import com.inspection.entity.evaluation.EvaluationResidualProveEntity;
-import com.inspection.entity.officerleave.OfficerAuditingEntity;
-import com.inspection.entity.officerleave.OfficerLeaveEntity;
-import com.inspection.entity.soldierschool.SoldierSchoolEntity;
 import com.inspection.pojo.EvaluationResidualLeaveMainPage;
 import com.inspection.service.evaluation.EvaluationResidualServiceI;
 
@@ -89,6 +94,7 @@ public class EvaluationResidualController extends BaseController {
 			}
 		}
 		request.setAttribute("departList", list);
+		request.setAttribute("currentDepart",SessionUtils.getCurrentUser().getCurrentDepart());
 		return new ModelAndView("com/inspection/evaluation/evaluationResidualList");
 	}
 
@@ -106,6 +112,9 @@ public class EvaluationResidualController extends BaseController {
 		CriteriaQuery cq = new CriteriaQuery(EvaluationResidualEntity.class, dataGrid);
 		//默认查询当前用户所属部门下数据
 		String departId = evaluationResidual.getDepartId();
+		if (StringUtils.isEmpty(request.getParameter("search"))){
+			departId = request.getParameter("currentDepartId");
+		}
 	/*	boolean isAdmin = SessionUtils.isAdminRole("admin");
 		boolean isManager = SessionUtils.isAdminRole("manager");
 		
@@ -308,166 +317,236 @@ public class EvaluationResidualController extends BaseController {
 
 	/**
 	 * 官兵评残处理详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMain")
-	public ModelAndView viewMain(EvaluationResidualEntity evaluationResidual, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		/*if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
-		}*/
-
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		req.setAttribute("residuald", id);
-		return new ModelAndView("com/inspection/evaluation/main");
-	}
-	
-	/**
-	 * 官兵评残个人基本信息详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMyselfInfo")
-	public ModelAndView viewMyselfInfo(EvaluationResidualEntity evaluationResidual, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			evaluationResidual = evaluationResidualService.findEntity(EvaluationResidualEntity.class, id);
-			req.setAttribute("evaluationResidualPage", evaluationResidual);
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/evaluation/myselfInfo");
-		}else{
-			return new ModelAndView("com/inspection/evaluation/myselfInfoDetial");
-			
-		}
-	}
-	
-	
-	/**
-	 * 官兵评残个人平时表现详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewPerformance")
-	public ModelAndView viewPerformance(HttpServletRequest req) {
-		String residualId = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(residualId)) {
-			List<EvaluationResidualPerformanceEntity> lists= evaluationResidualService.findAllPerformances (residualId);
-			req.setAttribute("lists", lists);
-			req.setAttribute("residualId", residualId);
-		}
-		
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/evaluation/performance");
-		}else{
-			return new ModelAndView("com/inspection/evaluation/performanceDetial");
-			
-		}
-		
-	}
-	
-	
-	/**
-	 * 官兵评残上级意见结果详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewAuditing")
-	public ModelAndView viewAuditing(HttpServletRequest req) {
-		String residualId = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(residualId)) {
-			List<EvaluationResidualAuditingEntity> lists= evaluationResidualService.findAllAudits (residualId);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", residualId);
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/evaluation/auditing");
-		}else{
-			return new ModelAndView("com/inspection/evaluation/auditingDetial");
-		}
-		
-	}
-	/**
-	 * 证明材料
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewResidualProve")
-	public ModelAndView viewResidualProve(HttpServletRequest req) {
-		String residualId = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(residualId)) {
-			List<EvaluationResidualProveEntity> lists= evaluationResidualService.findAllProves (residualId);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", residualId);
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/evaluation/residualProve");
-		}else{
-			return new ModelAndView("com/inspection/evaluation/residualProveDetial");
-		}
-		
-	}
-	
-	/**
-	 * 官兵评残处理详情
-	 * @param soldierLeave
 	 * @param req
 	 * @return
 	 */
 	@RequestMapping(params = "viewMainDetial")
 	public ModelAndView viewMainDetial(EvaluationResidualEntity evaluationResidual, HttpServletRequest req) {
 		String id = StringUtils.isNotEmpty(req.getParameter("id"))?req.getParameter("id"):evaluationResidual.getId();
-		
-		/*if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
-		}*/
+
 		if (StringUtils.isNotEmpty(id)) {
+			EvaluationResidualMain result = evaluationResidualService.findEntity(EvaluationResidualMain.class, id);
+			if ( result == null ){
+				result = new EvaluationResidualMain();
+			}
+
+			if(result.getGeRenZiShu() != null && result.getGeRenZiShu().length > 0) {
+				File dest = new File(req.getSession().getServletContext().getRealPath("/downloadFiles/evaluationResidual")
+						+"/"+result.getId()+"/"+result.getZiShuFilename());
+				if (!dest.getParentFile().exists()) { // 判断文件父目录是否存在
+					dest.getParentFile().mkdir();
+				}
+				try {
+					FileUtils.writeByteArrayToFile(dest, result.getGeRenZiShu());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
+			if(result.getFuHeXing() != null && result.getFuHeXing().length > 0) {
+				File dest = new File(req.getSession().getServletContext().getRealPath("/downloadFiles/evaluationResidual")
+						+"/"+result.getId()+"/"+result.getFuHeFilename());
+				if (!dest.getParentFile().exists()) { // 判断文件父目录是否存在
+					dest.getParentFile().mkdir();
+				}
+				try {
+					FileUtils.writeByteArrayToFile(dest, result.getFuHeXing());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
+			if(result.getShenFenZheng() != null && result.getShenFenZheng().length > 0) {
+				File dest = new File(req.getSession().getServletContext().getRealPath("/downloadFiles/evaluationResidual")
+						+"/"+result.getId()+"/"+result.getShenFenZhengFilename());
+				if (!dest.getParentFile().exists()) { // 判断文件父目录是否存在
+					dest.getParentFile().mkdir();
+				}
+				try {
+					FileUtils.writeByteArrayToFile(dest, result.getShenFenZheng());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
+			if(result.getJunGuangZheng() != null && result.getJunGuangZheng().length > 0) {
+				File dest = new File(req.getSession().getServletContext().getRealPath("/downloadFiles/evaluationResidual")
+						+"/"+result.getId()+"/"+result.getJunGuangZhengFilename());
+				if (!dest.getParentFile().exists()) { // 判断文件父目录是否存在
+					dest.getParentFile().mkdir();
+				}
+				try {
+					FileUtils.writeByteArrayToFile(dest, result.getJunGuangZheng());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
+			if(result.getBaoZhangKa() != null && result.getBaoZhangKa().length > 0) {
+				File dest = new File(req.getSession().getServletContext().getRealPath("/downloadFiles/evaluationResidual")
+						+"/"+result.getId()+"/"+result.getBaoZhangKaFilename());
+				if (!dest.getParentFile().exists()) { // 判断文件父目录是否存在
+					dest.getParentFile().mkdir();
+				}
+				try {
+					FileUtils.writeByteArrayToFile(dest, result.getBaoZhangKa());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
+			if(result.getBingLi() != null && result.getBingLi().length > 0) {
+				File dest = new File(req.getSession().getServletContext().getRealPath("/downloadFiles/evaluationResidual")
+						+"/"+result.getId()+"/"+result.getBingLiFilename());
+				if (!dest.getParentFile().exists()) { // 判断文件父目录是否存在
+					dest.getParentFile().mkdir();
+				}
+				try {
+					FileUtils.writeByteArrayToFile(dest, result.getBingLi());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+
 			evaluationResidual = evaluationResidualService.findEntity(EvaluationResidualEntity.class, id);
-			req.setAttribute("evaluationResidualPage", evaluationResidual);
-		}
-		if (StringUtils.isNotEmpty(id)) {
-			List<EvaluationResidualPerformanceEntity> lists= evaluationResidualService.findAllPerformances (id);
-			req.setAttribute("performanceLists", lists);
-			
+			result.setEntity(evaluationResidual);
+			req.setAttribute("evaluationResidualPage", result);
 		}
 		
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		
-		if (StringUtils.isNotEmpty(id)) {
-			List<EvaluationResidualAuditingEntity> lists= evaluationResidualService.findAllAudits (id);
-			req.setAttribute("auditingLists", lists);
-			
-		}
-		if (StringUtils.isNotEmpty(id)) {
-			List<EvaluationResidualProveEntity> lists= evaluationResidualService.findAllProves (id);
-			req.setAttribute("proveLists", lists);
-			
-		}
 		String isView =  req.getParameter("isView");
-		req.setAttribute("isView", isView);
-		req.setAttribute("id", id);
-		return new ModelAndView("com/inspection/evaluation/mainDetial");
+		if(isView.equals("true")){
+			return new ModelAndView("com/inspection/evaluation/mainDetial");
+		} else {
+			return new ModelAndView("com/inspection/evaluation/processEvaluation");
+		}
 	}
-	
+
+	// 处理页面
+	@RequestMapping(params = "modifyProcess")
+	@ResponseBody
+	public AjaxJson modifyProcess(EvaluationResidualMain evaluationResidualMain, HttpServletRequest req) {
+
+		AjaxJson result = new AjaxJson();
+		String id = req.getParameter("id");
+		evaluationResidualMain.setId(id);
+
+		MultipartHttpServletRequest multipartRequest = (MultipartHttpServletRequest) req;
+		MultipartFile file = multipartRequest.getFile("ziShuFile");
+		if (file != null && !file.isEmpty()) {
+			String fileName = file.getOriginalFilename();
+			try {
+				evaluationResidualMain.setZiShuFilename(fileName);
+				evaluationResidualMain.setGeRenZiShu(file.getBytes());
+			} catch (Exception e) {
+				e.printStackTrace();
+				result.setMsg("个人自述文件保存失败，请重试");
+				return result;
+			}
+		}else {
+			EvaluationResidualMain main = evaluationResidualService.findEntity(EvaluationResidualMain.class, id);
+			if (main!=null){
+				evaluationResidualMain.setZiShuFilename(main.getZiShuFilename());
+				evaluationResidualMain.setGeRenZiShu(main.getGeRenZiShu());
+			}
+		}
+
+		file = multipartRequest.getFile("fuHeFile");
+		if (file != null && !file.isEmpty()) {
+			String fileName = file.getOriginalFilename();
+			try {
+				evaluationResidualMain.setFuHeFilename(fileName);
+				evaluationResidualMain.setFuHeXing(file.getBytes());
+			} catch (Exception e) {
+				e.printStackTrace();
+				result.setMsg("病情与致残标准符合性文件保存失败，请重试");
+				return result;
+			}
+		}else {
+			EvaluationResidualMain main = evaluationResidualService.findEntity(EvaluationResidualMain.class, id);
+			if (main!=null){
+				evaluationResidualMain.setFuHeFilename(main.getFuHeFilename());
+				evaluationResidualMain.setFuHeXing(main.getFuHeXing());
+			}
+		}
+
+		file = multipartRequest.getFile("shenFenFile");
+		if (file != null && !file.isEmpty()) {
+			String fileName = file.getOriginalFilename();
+			try {
+				evaluationResidualMain.setShenFenZhengFilename(fileName);
+				evaluationResidualMain.setShenFenZheng(file.getBytes());
+			} catch (Exception e) {
+				e.printStackTrace();
+				result.setMsg("身份证图片保存失败，请重试");
+				return result;
+			}
+		}else {
+			EvaluationResidualMain main = evaluationResidualService.findEntity(EvaluationResidualMain.class, id);
+			if (main!=null){
+				evaluationResidualMain.setShenFenZhengFilename(main.getShenFenZhengFilename());
+				evaluationResidualMain.setShenFenZheng(main.getShenFenZheng());
+			}
+		}
+
+		file = multipartRequest.getFile("junGuanFile");
+		if (file != null && !file.isEmpty()) {
+			String fileName = file.getOriginalFilename();
+			try {
+				evaluationResidualMain.setJunGuangZhengFilename(fileName);
+				evaluationResidualMain.setJunGuangZheng(file.getBytes());
+			} catch (Exception e) {
+				e.printStackTrace();
+				result.setMsg("军官证图片保存失败，请重试");
+				return result;
+			}
+		}else {
+			EvaluationResidualMain main = evaluationResidualService.findEntity(EvaluationResidualMain.class, id);
+			if (main!=null){
+				evaluationResidualMain.setJunGuangZhengFilename(main.getJunGuangZhengFilename());
+				evaluationResidualMain.setJunGuangZheng(main.getJunGuangZheng());
+			}
+		}
+
+		file = multipartRequest.getFile("baoZhangFile");
+		if (file != null && !file.isEmpty()) {
+			String fileName = file.getOriginalFilename();
+			try {
+				evaluationResidualMain.setBaoZhangKaFilename(fileName);
+				evaluationResidualMain.setBaoZhangKa(file.getBytes());
+			} catch (Exception e) {
+				e.printStackTrace();
+				result.setMsg("保障卡图片保存失败，请重试");
+				return result;
+			}
+		}else {
+			EvaluationResidualMain main = evaluationResidualService.findEntity(EvaluationResidualMain.class, id);
+			if (main!=null){
+				evaluationResidualMain.setBaoZhangKaFilename(main.getBaoZhangKaFilename());
+				evaluationResidualMain.setBaoZhangKa(main.getBaoZhangKa());
+			}
+		}
+
+		file = multipartRequest.getFile("bingLiFile");
+		if (file != null && !file.isEmpty()) {
+			String fileName = file.getOriginalFilename();
+			try {
+				evaluationResidualMain.setBingLiFilename(fileName);
+				evaluationResidualMain.setBingLi(file.getBytes());
+			} catch (Exception e) {
+				e.printStackTrace();
+				result.setMsg("病历图片保存失败，请重试");
+				return result;
+			}
+		}else {
+			EvaluationResidualMain main = evaluationResidualService.findEntity(EvaluationResidualMain.class, id);
+			if (main!=null){
+				evaluationResidualMain.setBingLiFilename(main.getBingLiFilename());
+				evaluationResidualMain.setBingLi(main.getBingLi());
+			}
+		}
+
+		evaluationResidualService.saveOrUpdate(evaluationResidualMain);
+		result.setMsg("保存成功");
+		return result;
+	}
 }

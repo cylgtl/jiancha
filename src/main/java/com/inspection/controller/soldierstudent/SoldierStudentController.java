@@ -6,6 +6,14 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.inspection.controller.lib.JsonDateValueProcessor;
+import com.inspection.entity.JunShiJiaFen;
+import com.inspection.entity.soldierstudent.SoldierStudentMain;
+import net.sf.ezmorph.object.DateMorpher;
+import net.sf.json.JSONArray;
+import net.sf.json.JSONObject;
+import net.sf.json.JsonConfig;
+import net.sf.json.util.JSONUtils;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -26,12 +34,9 @@ import org.jeecgframework.platform.constant.Globals;
 import org.jeecgframework.web.common.hqlsearch.HqlGenerateUtil;
 import org.jeecgframework.web.system.controller.BaseController;
 import org.jeecgframework.web.system.entity.TSDepart;
-import org.jeecgframework.web.system.entity.TSTypegroup;
 import org.jeecgframework.web.system.entity.TSUser;
 import org.jeecgframework.web.system.service.SystemService;
 
-import com.inspection.entity.officerleave.OfficerLeaveEntity;
-import com.inspection.entity.soldierselect.SoldierSelectEntity;
 import com.inspection.entity.soldierstudent.SoldierStudentAssessmentEntity;
 import com.inspection.entity.soldierstudent.SoldierStudentAuditingEntity;
 import com.inspection.entity.soldierstudent.SoldierStudentEntity;
@@ -91,12 +96,13 @@ public class SoldierStudentController extends BaseController {
 			}
 		}
 		request.setAttribute("departList", list);
+		request.setAttribute("currentDepart",SessionUtils.getCurrentUser().getCurrentDepart());
 		return new ModelAndView("com/inspection/soldierstudent/soldierStudentList");
 	}
 
 	/**
 	 * easyui AJAX请求数据
-	 * 
+	 *
 	 * @param request
 	 * @param response
 	 * @param dataGrid
@@ -107,7 +113,10 @@ public class SoldierStudentController extends BaseController {
 	public void datagrid(SoldierStudentEntity soldierStudent,HttpServletRequest request, HttpServletResponse response, DataGrid dataGrid) {
 		CriteriaQuery cq = new CriteriaQuery(SoldierStudentEntity.class, dataGrid);
 		//默认查询当前用户所属部门下数据
-				String departId = soldierStudent.getDepartId();
+		String departId = soldierStudent.getDepartId();
+		if (StringUtils.isEmpty(request.getParameter("search"))){
+			departId = request.getParameter("currentDepartId");
+		}
 				/*boolean isAdmin = SessionUtils.isAdminRole("admin");
 				boolean isManager = SessionUtils.isAdminRole("manager");
 				
@@ -295,7 +304,6 @@ public class SoldierStudentController extends BaseController {
 	 * 
 	 * @Title: addorupdateOperate
 	 * @Description: 保存平时表现和审批结果
-	 * @param officerLeave
 	 * @param req
 	 * @return AjaxJson
 	 * @author  yxd
@@ -348,182 +356,69 @@ public class SoldierStudentController extends BaseController {
 	}
 
 	/**
-	 * 表彰奖励处理详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMain")
-	public ModelAndView viewMain(SoldierStudentEntity soldierStudent, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		/*if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
-		}*/
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		TSTypegroup pxgroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","px_type");
-		if(pxgroup!=null){
-			req.setAttribute("pxList", pxgroup.getTSTypes());
-		}
-		req.setAttribute("residuald", id);
-		return new ModelAndView("com/inspection/soldierstudent/main");
-	}
-	
-	/**
-	 * 表彰奖励个人基本信息详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMyselfInfo")
-	public ModelAndView viewMyselfInfo(SoldierStudentEntity soldierStudent, HttpServletRequest req) {
-		String id = req.getParameter("id");
-	
-		if (StringUtils.isNotEmpty(id)) {
-			soldierStudent = soldierStudentService.findEntity(SoldierStudentEntity.class, id);
-			req.setAttribute("soldierStudentPage", soldierStudent);
-		}
-		//表彰奖励-提名类型
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","nor_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-	
-			return new ModelAndView("com/inspection/soldierstudent/myselfInfo");
-		
-	}
-	
-	
-	/**
-	 * 表彰奖励个人平时表现详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewPerformance")
-	public ModelAndView viewPerformance(HttpServletRequest req) {
-		String id = req.getParameter("id");
-
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldierStudentPerformanceEntity> lists= soldierStudentService.findAllPerformances (id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("residualId", id);
-		}
-		
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-	
-			return new ModelAndView("com/inspection/soldierstudent/performance");
-		
-		
-	}
-	
-	
-	/**
-	 * 表彰奖励上级意见结果详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewAuditing")
-	public ModelAndView viewAuditing(HttpServletRequest req) {
-		String id = req.getParameter("id");
-
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldierStudentAuditingEntity> lists= soldierStudentService.findAllAudits (id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		
-			return new ModelAndView("com/inspection/soldierstudent/auditing");
-		
-		
-	}
-	/**
-	 * 民族评议/推荐
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewResidualRecommend")
-	public ModelAndView viewResidualRecommend(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldierStudentRecommendEntity> lists= soldierStudentService.findAllRecommends(id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		
-			return new ModelAndView("com/inspection/soldierstudent/soldierStudentRecommend");
-		
-		
-	}
-	
-	/**
-	 * 考核结果
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewAssessment")
-	public ModelAndView viewAssessment(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldierStudentAssessmentEntity> lists= soldierStudentService.findAlltAssessments(id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		TSTypegroup pxgroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","px_type");
-		if(pxgroup!=null){
-			req.setAttribute("pxList", pxgroup.getTSTypes());
-		}
-		return new ModelAndView("com/inspection/soldierstudent/assessment");
-		
-		
-	}
-	
-	/**
-	 * 表彰奖励处理详情
-	 * @param soldierLeave
+	 * 查看或处理
 	 * @param req
 	 * @return
 	 */
 	@RequestMapping(params = "viewMainDetial")
-	public ModelAndView viewMainDetial(SoldierStudentEntity soldierstudent, HttpServletRequest req) {
-		String id = StringUtils.isNotEmpty(req.getParameter("id"))?req.getParameter("id"):soldierstudent.getId();
-		
-		/*if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
-		}*/
-		soldierstudent = soldierStudentService.findEntity(SoldierStudentEntity.class, id);
-		req.setAttribute("soldierStudentPage", soldierstudent);
+	public ModelAndView viewMainDetial(SoldierStudentEntity entity, HttpServletRequest req) {
+		String id = StringUtils.isNotEmpty(req.getParameter("id"))?req.getParameter("id"):entity.getId();
 		if (StringUtils.isNotEmpty(id)) {
-			List<SoldierStudentPerformanceEntity> performanceLists= soldierStudentService.findAllPerformances (id);
-			req.setAttribute("performanceLists", performanceLists);
-			;
+			SoldierStudentMain result = new SoldierStudentMain();
+			result = soldierStudentService.findEntity(SoldierStudentMain.class, id);
+			if (result == null) {
+				result = new SoldierStudentMain();
+			}
+			entity = soldierStudentService.findEntity(SoldierStudentEntity.class, id);
+			result.setEntity(entity);
+
+			result.setShouJiangQingKuang(JSONArray.toList(JSONArray.fromObject(result.getShouJiangString())));
+
+			String[] formats={"yyyy-MM-dd HH:mm:ss","yyyy-MM-dd"};
+			JSONUtils.getMorpherRegistry().registerMorpher(new DateMorpher(formats));
+			result.setJunShiJiaFen(JSONArray.toList(JSONArray.fromObject(result.getJiaFenString()),JunShiJiaFen.class));
+			//System.out.println("sss"+((JunShiJiaFen)JSONObject.toBean(JSONObject.fromObject("{'detail':'加分1','time':'2018-10-01'}"),JunShiJiaFen.class)).getTime());
+
+
+			req.setAttribute("soldierStudentPage", result);
 		}
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		TSTypegroup pxgroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","px_type");
-		if(pxgroup!=null){
-			req.setAttribute("pxList", pxgroup.getTSTypes());
-		}
-		List<SoldierStudentAuditingEntity> auditingLists= soldierStudentService.findAllAudits (id);
-		req.setAttribute("auditingLists", auditingLists);
-		List<SoldierStudentRecommendEntity> recommendLists= soldierStudentService.findAllRecommends(id);
-		req.setAttribute("recommendLists", recommendLists);
-		List<SoldierStudentAssessmentEntity> assessmentLists= soldierStudentService.findAlltAssessments(id);
-		req.setAttribute("assessmentLists", assessmentLists);
 		String isView =  req.getParameter("isView");
-		req.setAttribute("isView", isView);
-		req.setAttribute("id", id);
-		return new ModelAndView("com/inspection/soldierstudent/mainDetial");
+        req.setAttribute("id", id);
+        if(isView.equals("true")){
+            return new ModelAndView("com/inspection/soldierstudent/mainDetial");
+        } else {
+            return new ModelAndView("com/inspection/soldierstudent/processSoldierStudent");
+        }
 	}
+
+    // 大学生士兵提干调整-处理页面
+    @RequestMapping(params = "modifyProcess")
+    @ResponseBody
+    public AjaxJson modifyProcess(SoldierStudentMain soldierStudentMain, HttpServletRequest req) {
+        AjaxJson result = new AjaxJson();
+        String id = req.getParameter("id");
+		soldierStudentMain.setId(id);
+
+        List<Date> times = soldierStudentMain.getTimes();
+        List<String> details = soldierStudentMain.getDetails();
+        List<JunShiJiaFen> jiaFen = new ArrayList<JunShiJiaFen>();
+        for( int i = 0 ; i < times.size() ; i++) {
+            if (times.get(i) != null) {
+				jiaFen.add(new JunShiJiaFen(times.get(i),details.get(i)));
+			}
+        }
+
+		if (jiaFen.size() > 0) {
+			JsonConfig jsonConfig = new JsonConfig();
+			jsonConfig.registerJsonValueProcessor(Date.class , new JsonDateValueProcessor());
+			soldierStudentMain.setJiaFenString(JSONArray.fromObject(jiaFen,jsonConfig).toString());
+		}
+
+		soldierStudentMain.setShouJiangString(JSONArray.fromObject(soldierStudentMain.getShouJiangQingKuang()).toString());
+
+		soldierStudentService.saveOrUpdate(soldierStudentMain);
+
+        result.setMsg("保存成功");
+        return result;
+    }
 }

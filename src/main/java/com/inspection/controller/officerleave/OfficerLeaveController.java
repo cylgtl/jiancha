@@ -6,6 +6,7 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.inspection.entity.officerleave.OfficerLeaveMain;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -30,7 +31,6 @@ import org.jeecgframework.web.system.entity.TSTypegroup;
 import org.jeecgframework.web.system.entity.TSUser;
 import org.jeecgframework.web.system.service.SystemService;
 
-import com.inspection.entity.leave.SoldierLeaveEntity;
 import com.inspection.entity.officerleave.OfficerAuditingEntity;
 import com.inspection.entity.officerleave.OfficerLeaveEntity;
 import com.inspection.entity.officerleave.OfficerPerformanceEntity;
@@ -87,6 +87,7 @@ public class OfficerLeaveController extends BaseController {
 			}
 		}
 		request.setAttribute("departList", list);
+		request.setAttribute("currentDepart",SessionUtils.getCurrentUser().getCurrentDepart());
 		return new ModelAndView("com/inspection/officerleave/officerLeaveList");
 	}
 
@@ -103,7 +104,10 @@ public class OfficerLeaveController extends BaseController {
 	public void datagrid(OfficerLeaveEntity officerLeave,HttpServletRequest request, HttpServletResponse response, DataGrid dataGrid) {
 		CriteriaQuery cq = new CriteriaQuery(OfficerLeaveEntity.class, dataGrid);
 		//默认查询当前用户所属部门下数据
-				String departId = officerLeave.getDepartId();
+		String departId = officerLeave.getDepartId();
+		if (StringUtils.isEmpty(request.getParameter("search"))){
+			departId = request.getParameter("currentDepartId");
+		}
 				/*boolean isAdmin = SessionUtils.isAdminRole("admin");
 				boolean isManager = SessionUtils.isAdminRole("manager");
 				
@@ -282,144 +286,44 @@ public class OfficerLeaveController extends BaseController {
 		return new ModelAndView("com/inspection/officerleave/officerLeave");
 	}
 	
-	/**
-	 * 军官请假处理详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMain")
-	public ModelAndView viewMain(OfficerLeaveEntity officerLeave, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		/*if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
-		}*/
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		req.setAttribute("officerLeaveId", id);
-		return new ModelAndView("com/inspection/officerleave/main");
-	}
-	
-	/**
-	 * 军官请假个人基本信息详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMyselfInfo")
-	public ModelAndView viewMyselfInfo(OfficerLeaveEntity officerLeave, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/officerleave/myselfInfo");
-		}else{
-			return new ModelAndView("com/inspection/officerleave/myselfInfoDetial");
-			
-		}
-	}
-	
-	
-	/**
-	 * 军官请假个人平时表现详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewPerformance")
-	public ModelAndView viewPerformance(HttpServletRequest req) {
-		String officerId = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(officerId)) {
-			List<OfficerPerformanceEntity> lists= officerLeaveService.findAllPerformances (officerId);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", officerId);
-		}
-		
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/officerleave/performance");
-		}else{
-			return new ModelAndView("com/inspection/officerleave/performanceDetial");
-			
-		}
-		
-	}
-	
-	
-	/**
-	 * 军官请假上级意见结果详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewAuditing")
-	public ModelAndView viewAuditing(HttpServletRequest req) {
-		String officerId = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(officerId)) {
-			List<OfficerAuditingEntity> lists= officerLeaveService.findAllAudits (officerId);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", officerId);
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/officerleave/auditing");
-		}else{
-			return new ModelAndView("com/inspection/officerleave/auditingDetial");
-		}
-		
-	}
-	
 	
 	/**
 	 * 军官请假处理详情
-	 * @param soldierLeave
 	 * @param req
 	 * @return
 	 */
 	@RequestMapping(params = "viewMainDetial")
-	public ModelAndView viewMainDetial(OfficerLeaveEntity officerLeave, HttpServletRequest req) {
-		String id = StringUtils.isNotEmpty(req.getParameter("id"))?req.getParameter("id"):officerLeave.getId();
+	public ModelAndView viewMainDetial(OfficerLeaveEntity entity, HttpServletRequest req) {
+		String id = StringUtils.isNotEmpty(req.getParameter("id"))?req.getParameter("id"):entity.getId();
 		String isView =  req.getParameter("isView");
-		/*if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
-		}*/
 		if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
+			OfficerLeaveMain result = officerLeaveService.findEntity(OfficerLeaveMain.class, id);
+			if(result == null) {
+				result = new OfficerLeaveMain();
+			}
+			entity = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
+			result.setEntity(entity);
+			req.setAttribute("officerLeavePage", result);
 		}
-		if (StringUtils.isNotEmpty(id)) {
-			List<OfficerPerformanceEntity> lists= officerLeaveService.findAllPerformances (id);
-			req.setAttribute("performanceLists", lists);
-			
-		}
-		
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		if (StringUtils.isNotEmpty(id)) {
-			List<OfficerAuditingEntity> lists= officerLeaveService.findAllAudits (id);
-			req.setAttribute("auditingLists", lists);
-	
-		}
-		
-		req.setAttribute("isView", isView);
 		req.setAttribute("officerLeaveId", id);
-		return new ModelAndView("com/inspection/officerleave/mainDetial");
+		if(isView.equals("true")){
+			return new ModelAndView("com/inspection/officerleave/mainDetial");
+		} else {
+			return new ModelAndView("com/inspection/officerleave/processOfficerLeave");
+		}
 	}
-	
 
-	
-	
+	/**
+	 * 处理页面
+	 * @param req
+	 * @return
+	 */
+/*	@RequestMapping(params = "modifyProcess")
+	@ResponseBody
+	public AjaxJson modifyProcess(OfficerLeaveMain officerLeaveMain, HttpServletRequest req) {
+		AjaxJson result = new AjaxJson();
+		String id = req.getParameter("id");
+		result.setMsg("保存成功");
+		return result;
+	}*/
 }

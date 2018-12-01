@@ -6,6 +6,13 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.inspection.controller.lib.JsonDateValueProcessor;
+import com.inspection.entity.JunShiJiaFen;
+import com.inspection.entity.soldiersApply.SoldiersApplyMain;
+import net.sf.ezmorph.object.DateMorpher;
+import net.sf.json.JSONArray;
+import net.sf.json.JsonConfig;
+import net.sf.json.util.JSONUtils;
 import org.apache.log4j.Logger;
 import org.jeecgframework.core.common.hibernate.qbc.CriteriaQuery;
 import org.jeecgframework.core.common.model.json.AjaxJson;
@@ -66,55 +73,6 @@ public class SoldiersApplyController extends BaseController {
 	public void setMessage(String message) {
 		this.message = message;
 	}
-	
-	
-	/**
-	 * 士兵处理详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMain")
-	public ModelAndView viewMain(SoldiersApplyEntity soldiersApply, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		/*if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
-		}*/
-		TSTypegroup sexgroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","sex");
-		if(sexgroup!=null){
-			req.setAttribute("sexList", sexgroup.getTSTypes());
-		}
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		TSTypegroup pxgroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","px_type");
-		if(pxgroup!=null){
-			req.setAttribute("pxList", pxgroup.getTSTypes());
-		}
-		req.setAttribute("residuald", id);
-		return new ModelAndView("com/inspection/soldiersApply/main");
-	}
-	
-	/**
-	 * 士兵考学处理详情  查看
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMainDetial")
-	public ModelAndView viewMainDetial(SoldiersApplyEntity soldiersApply, HttpServletRequest req) {
-		String id = StringUtils.isNotEmpty(req.getParameter("id"))?req.getParameter("id"):soldiersApply.getId();
-		
-		/*if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
-		}*/
-		req.setAttribute("residualId", id);
-		return new ModelAndView("com/inspection/soldiersApply/mainDetial");
-	}
-
 
 	/**
 	 * 士兵考学列表 页面跳转
@@ -134,6 +92,7 @@ public class SoldiersApplyController extends BaseController {
 			}
 		}
 		request.setAttribute("departList", list);
+		request.setAttribute("currentDepart",SessionUtils.getCurrentUser().getCurrentDepart());
 		return new ModelAndView("com/inspection/soldiersApply/soldiersApplyList");
 	}
 
@@ -151,6 +110,9 @@ public class SoldiersApplyController extends BaseController {
 		CriteriaQuery cq = new CriteriaQuery(SoldiersApplyEntity.class, dataGrid);
 		//默认查询当前用户所属部门下数据
 		String departId = soldiersApply.getDepartId();
+		if (StringUtils.isEmpty(request.getParameter("search"))){
+			departId = request.getParameter("currentDepartId");
+		}
 		/*boolean isAdmin = SessionUtils.isAdminRole("admin");
 		boolean isManager = SessionUtils.isAdminRole("manager");
 		
@@ -253,153 +215,6 @@ public class SoldiersApplyController extends BaseController {
 			req.setAttribute("sexList", sexgroup.getTSTypes());
 		}
 		return new ModelAndView("com/inspection/soldiersApply/soldiersApply");
-	}
-	
-	/**
-	 * 士兵考学个人基本信息详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMyselfInfo")
-	public ModelAndView viewMyselfInfo(SoldiersApplyEntity soldiersApply, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			soldiersApply = soldiersApplyService.findEntity(SoldiersApplyEntity.class, id);
-			req.setAttribute("soldiersApplyPage", soldiersApply);
-		}
-		TSTypegroup sexgroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","sex");
-		if(sexgroup!=null){
-			req.setAttribute("sexList", sexgroup.getTSTypes());
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/soldiersApply/myselfInfo");
-		}else{
-			return new ModelAndView("com/inspection/soldiersApply/myselfInfoDetial");
-			
-		}
-	}
-	
-	/**
-	 * 士兵考学各级研究意见和结果详情
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewAuditing")
-	public ModelAndView viewAuditing(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldiersApplyAuditEntity> lists= soldiersApplyService.findAllAudits (id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/soldiersApply/auditing");
-		}else{
-			return new ModelAndView("com/inspection/soldiersApply/auditingDetial");
-		}
-	}
-	
-	/**
-	 * 士兵考学个人平时表现详情
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewPerformance")
-	public ModelAndView viewPerformance(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldiersApplyPerformanceEntity> lists= soldiersApplyService.findAllPerformances (id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("residualId", id);
-		}
-		
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/soldiersApply/performance");
-		}else{
-			return new ModelAndView("com/inspection/soldiersApply/performanceDetial");
-			
-		}
-	}
-	
-	/**
-	 * 民族评议/推荐
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewResidualRecommend")
-	public ModelAndView viewResidualRecommend(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldiersApplyRecommendEntity> lists= soldiersApplyService.findAllRecommends(id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/soldiersApply/residualRecommend");
-		}else{
-			return new ModelAndView("com/inspection/soldiersApply/residualRecommendDetial");
-		}
-	}
-	
-	/**
-	 * 考核结果
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewAssessment")
-	public ModelAndView viewAssessment(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldiersApplyAssessmentEntity> lists= soldiersApplyService.findAllAssessments(id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		TSTypegroup pxgroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","px_type");
-		if(pxgroup!=null){
-			req.setAttribute("pxList", pxgroup.getTSTypes());
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/soldiersApply/assessment");
-		}else{
-			return new ModelAndView("com/inspection/soldiersApply/assessmentDetial");
-		}
-	}
-	
-	@RequestMapping(params = "viewDetailMain")
-	public ModelAndView viewDetailMain(SoldiersApplyEntity soldiersApply, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		SoldiersApplyMainPage result = new SoldiersApplyMainPage();
-		if (StringUtils.isNotEmpty(id)) {
-			soldiersApply = soldiersApplyService.findEntity(SoldiersApplyEntity.class, id);
-			result.setSoldiersApply(soldiersApply);
-			result.setPerformances(soldiersApplyService.findAllPerformances (id));
-			result.setResults(soldiersApplyService.findAllAudits (id));
-			result.setRecommends(soldiersApplyService.findAllRecommends(id));
-			result.setAssessments(soldiersApplyService.findAllAssessments(id));
-			req.setAttribute("soldiersApplyPage", result);
-		}
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		TSTypegroup pxgroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","px_type");
-		if(pxgroup!=null){
-			req.setAttribute("pxList", pxgroup.getTSTypes());
-		}
-		TSTypegroup sexgroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","sex");
-		req.setAttribute("sexList", sexgroup.getTSTypes());
-		
-		return new ModelAndView("com/inspection/soldiersApply/viewDetailMain");
 	}
 	
 	/**
@@ -532,5 +347,67 @@ public class SoldiersApplyController extends BaseController {
 		result.setMsg("保存成功");
 		return result;
 	}
-	
+
+	/**
+	 * 查看或处理
+	 * @param entity
+	 * @param req
+	 * @return
+	 */
+	@RequestMapping(params = "viewDetailMain")
+	public ModelAndView viewDetailMain(SoldiersApplyEntity entity, HttpServletRequest req) {
+		String id = req.getParameter("id");
+		if (StringUtils.isNotEmpty(id)) {
+			SoldiersApplyMain result = new SoldiersApplyMain();
+			result = soldiersApplyService.findEntity(SoldiersApplyMain.class, id);
+			if (result == null) {
+				result = new SoldiersApplyMain();
+			}
+			String[] formats={"yyyy-MM-dd HH:mm:ss","yyyy-MM-dd"};
+			JSONUtils.getMorpherRegistry().registerMorpher(new DateMorpher(formats));
+			result.setJunShiJiaFen(JSONArray.toList(JSONArray.fromObject(result.getJiaFenString()),JunShiJiaFen.class));
+			entity = soldiersApplyService.findEntity(SoldiersApplyEntity.class, id);
+			result.setEntity(entity);
+			req.setAttribute("soldiersApplyPage", result);
+		}
+		req.setAttribute("id", id);
+		String isView =  req.getParameter("isView");
+		if(isView.equals("true")){
+			return new ModelAndView("com/inspection/soldiersApply/viewDetailMain");
+		} else {
+			return new ModelAndView("com/inspection/soldiersApply/processSoldierApply");
+		}
+	}
+
+	/**
+	 * 处理页面
+	 * @param req
+	 * @return
+	 */
+	@RequestMapping(params = "modifyProcess")
+	@ResponseBody
+	public AjaxJson modifyProcess(SoldiersApplyMain soldiersApplyMain, HttpServletRequest req) {
+		AjaxJson result = new AjaxJson();
+		String id = req.getParameter("id");
+		soldiersApplyMain.setId(id);
+
+		List<Date> times = soldiersApplyMain.getTimes();
+		List<String> details = soldiersApplyMain.getDetails();
+		List<JunShiJiaFen> jiaFen = new ArrayList<JunShiJiaFen>();
+		for( int i = 0 ; i < times.size() ; i++) {
+			if (times.get(i) != null) {
+				jiaFen.add(new JunShiJiaFen(times.get(i),details.get(i)));
+			}
+		}
+
+		if (jiaFen.size() > 0) {
+			JsonConfig jsonConfig = new JsonConfig();
+			jsonConfig.registerJsonValueProcessor(Date.class , new JsonDateValueProcessor());
+			soldiersApplyMain.setJiaFenString(JSONArray.fromObject(jiaFen,jsonConfig).toString());
+		}
+
+		soldiersApplyService.saveOrUpdate(soldiersApplyMain);
+		result.setMsg("保存成功");
+		return result;
+	}
 }

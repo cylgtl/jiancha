@@ -63,22 +63,27 @@ public class ReportController extends BaseController {
 
 
 	/**
-	 * 信访举报列表 页面跳转
+	 * 实时举报列表 页面跳转
 	 * 
 	 * @return
 	 */
 	@RequestMapping(params = "report")
 	public ModelAndView report(HttpServletRequest request) {
-		return new ModelAndView("com/inspection/report/reportList");
+		String type = request.getParameter("type");
+		if(StringUtils.isEmpty(type)){
+			type = "jiucuo";
+			request.setAttribute("type", type);
+			return new ModelAndView("com/inspection/report/reportList");
+		}else{
+			request.setAttribute("type", type);
+		return new ModelAndView("com/inspection/report/feedbackList");
+		}
 	}
-	
 	
 	@RequestMapping(params = "reportDeal")
 	public ModelAndView reportDeal(HttpServletRequest request) {
 		return new ModelAndView("com/inspection/report/reportListDeal");
 	}
-	
-	
 
 	/**
 	 * easyui AJAX请求数据
@@ -122,7 +127,11 @@ public class ReportController extends BaseController {
 				cq.eq("createUserId", user.getId());
 			}
 		}*/
-		
+		String type = request.getParameter("type");
+		if(!"".equals(type)){
+			cq.eq("type", type);
+		}
+
 		boolean isVistor = SessionUtils.isAdminRole("vistor");
 		if(isVistor){
 			cq.isNotNull("replyContent");
@@ -145,7 +154,7 @@ public class ReportController extends BaseController {
 	public AjaxJson del(ReportEntity report, HttpServletRequest request) {
 		AjaxJson j = new AjaxJson();
 		report = systemService.findEntity(ReportEntity.class, report.getId());
-		message = "信访举报删除成功";
+		message = "删除成功";
 		reportService.delete(report);
 		systemService.addLog(message, Globals.Log_Type_DEL, Globals.Log_Leavel_INFO);
 		
@@ -167,7 +176,7 @@ public class ReportController extends BaseController {
 		
 		TSUser user = SessionUtils.getCurrentUser();
 		if (StringUtils.isNotEmpty(report.getId())) {
-			message = "信访举报更新成功";
+			message = "更新成功";
 			ReportEntity t = reportService.find(ReportEntity.class, report.getId());
 			try {
                 BeanPropertyUtils.copyBeanNotNull2Bean(report, t);
@@ -178,10 +187,10 @@ public class ReportController extends BaseController {
 				systemService.addLog(message, Globals.Log_Type_UPDATE, Globals.Log_Leavel_INFO);
 			} catch (Exception e) {
 				e.printStackTrace();
-				message = "信访举报更新失败";
+				message = "举报更新失败";
 			}
 		} else {
-			message = "信访举报添加成功";
+			message = "举报添加成功";
 			String name = report.getPersonName();
 			String phone =report.getPersonPhone();
 			
@@ -215,12 +224,19 @@ public class ReportController extends BaseController {
 		if (StringUtils.isNotEmpty(report.getId())) {
 			reportId = report.getId();
 		}
-		
+		String type = req.getParameter("type");
 		if(StringUtils.isNotEmpty(reportId)){
 			report = reportService.findEntity(ReportEntity.class,reportId);
-			req.setAttribute("reportPage", report);
 		}
-		
+
+		if(report == null){
+			report = new ReportEntity();
+		}
+		if(StringUtils.isEmpty(report.getType())){
+			report.setType(type);
+		}
+		req.setAttribute("reportPage", report);
+
 		if(StringUtils.isNotEmpty(id) && StringUtils.isNotEmpty(url)) {
 			req.setAttribute("url", url+"&id="+id);
 		}

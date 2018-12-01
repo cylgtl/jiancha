@@ -1,4 +1,6 @@
 package com.inspection.controller.commendreward;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -6,12 +8,18 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.inspection.entity.JunShiXunLian;
+import com.inspection.entity.commendreward.CommendRewardMain;
+import net.sf.json.JSONArray;
+import org.apache.commons.io.FileUtils;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.multipart.MultipartHttpServletRequest;
 import org.springframework.web.servlet.ModelAndView;
 
 import org.jeecgframework.core.util.BeanPropertyUtils;
@@ -26,7 +34,6 @@ import org.jeecgframework.platform.constant.Globals;
 import org.jeecgframework.web.common.hqlsearch.HqlGenerateUtil;
 import org.jeecgframework.web.system.controller.BaseController;
 import org.jeecgframework.web.system.entity.TSDepart;
-import org.jeecgframework.web.system.entity.TSType;
 import org.jeecgframework.web.system.entity.TSTypegroup;
 import org.jeecgframework.web.system.entity.TSUser;
 import org.jeecgframework.web.system.service.SystemService;
@@ -35,7 +42,6 @@ import com.inspection.entity.commendreward.CommendRewardAuditEntity;
 import com.inspection.entity.commendreward.CommendRewardEntity;
 import com.inspection.entity.commendreward.CommendRewardPerformanceEntity;
 import com.inspection.entity.commendreward.CommendRewardRecommendEntity;
-import com.inspection.entity.evaluation.EvaluationResidualEntity;
 import com.inspection.pojo.CommendRewardMainPage;
 import com.inspection.service.commendreward.CommendRewardServiceI;
 
@@ -89,6 +95,7 @@ public class CommendRewardController extends BaseController {
 			}
 		}
 		request.setAttribute("departList", list);
+		request.setAttribute("currentDepart",SessionUtils.getCurrentUser().getCurrentDepart());
 		return new ModelAndView("com/inspection/commendreward/commendRewardList");
 	}
 
@@ -105,7 +112,10 @@ public class CommendRewardController extends BaseController {
 	public void datagrid(CommendRewardEntity commendReward,HttpServletRequest request, HttpServletResponse response, DataGrid dataGrid) {
 		CriteriaQuery cq = new CriteriaQuery(CommendRewardEntity.class, dataGrid);
 		//默认查询当前用户所属部门下数据
-				String departId = commendReward.getDepartId();
+		String departId = commendReward.getDepartId();
+		if (StringUtils.isEmpty(request.getParameter("search"))){
+			departId = request.getParameter("currentDepartId");
+		}
 				/*boolean isAdmin = SessionUtils.isAdminRole("admin");
 				boolean isManager = SessionUtils.isAdminRole("manager");
 				
@@ -319,173 +329,88 @@ public class CommendRewardController extends BaseController {
 
 	/**
 	 * 表彰奖励处理详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMain")
-	public ModelAndView viewMain(CommendRewardEntity commendReward, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		/*if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
-		}*/
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		req.setAttribute("residuald", id);
-		return new ModelAndView("com/inspection/commendreward/main");
-	}
-	
-	/**
-	 * 表彰奖励个人基本信息详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMyselfInfo")
-	public ModelAndView viewMyselfInfo(CommendRewardEntity commendReward, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			commendReward = commendRewardService.findEntity(CommendRewardEntity.class, id);
-			req.setAttribute("commendrewardPage", commendReward);
-		}
-		//表彰奖励-提名类型
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","nor_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/commendreward/myselfInfo");
-		}else{
-			return new ModelAndView("com/inspection/commendreward/myselfInfoDetial");
-			
-		}
-	}
-	
-	
-	/**
-	 * 表彰奖励个人平时表现详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewPerformance")
-	public ModelAndView viewPerformance(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<CommendRewardPerformanceEntity> lists= commendRewardService.findAllPerformances (id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("residualId", id);
-		}
-		
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/commendreward/performance");
-		}else{
-			return new ModelAndView("com/inspection/commendreward/performanceDetial");
-			
-		}
-		
-	}
-	
-	
-	/**
-	 * 表彰奖励上级意见结果详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewAuditing")
-	public ModelAndView viewAuditing(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<CommendRewardAuditEntity> lists= commendRewardService.findAllAudits (id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/commendreward/auditing");
-		}else{
-			return new ModelAndView("com/inspection/commendreward/auditingDetial");
-		}
-		
-	}
-	/**
-	 * 民族评议/推荐
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewResidualRecommend")
-	public ModelAndView viewResidualRecommend(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<CommendRewardRecommendEntity> lists= commendRewardService.findAllRecommends(id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/commendreward/residualRecommend");
-		}else{
-			return new ModelAndView("com/inspection/commendreward/residualRecommendDetial");
-		}
-		
-	}
-	
-	/**
-	 * 表彰奖励处理详情
-	 * @param soldierLeave
 	 * @param req
 	 * @return
 	 */
 	@RequestMapping(params = "viewMainDetial")
-	public ModelAndView viewMainDetial(CommendRewardEntity commendReward, HttpServletRequest req) {
+	public ModelAndView viewMainDetail(CommendRewardEntity commendReward, HttpServletRequest req) {
 		String id = StringUtils.isNotEmpty(req.getParameter("id"))?req.getParameter("id"):commendReward.getId();
-		
-		/*if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
-		}*/
+
 		if (StringUtils.isNotEmpty(id)) {
+			CommendRewardMain result = commendRewardService.findEntity(CommendRewardMain.class, id);
+			if (result==null){
+				result = new CommendRewardMain();
+			}
+
+			if(result.getShiJiCaiLiao() != null && result.getShiJiCaiLiao().length > 0) {
+				File dest = new File(req.getSession().getServletContext().getRealPath("/downloadFiles/commendReward")
+						+"/"+result.getId()+"/"+result.getShiJiFilename());
+				if (!dest.getParentFile().exists()) { // 判断文件父目录是否存在
+					dest.getParentFile().mkdir();
+				}
+				try {
+					FileUtils.writeByteArrayToFile(dest, result.getShiJiCaiLiao());
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
 			commendReward = commendRewardService.findEntity(CommendRewardEntity.class, id);
-			req.setAttribute("commendrewardPage", commendReward);
+			result.setEntity(commendReward);
+			result.setJunShiXunLian(JSONArray.toList(JSONArray.fromObject(result.getXunLianString()), JunShiXunLian.class));
+			result.setBiaoZhang(JSONArray.toList(JSONArray.fromObject(result.getBiaoZhangString())));
+			req.setAttribute("commendrewardPage", result);
 		}
-		//表彰奖励-提名类型
-		TSTypegroup norTypeList=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","nor_type");
-		if(norTypeList!=null){
-			req.setAttribute("norTypeList", norTypeList.getTSTypes());
-		}
-		if (StringUtils.isNotEmpty(id)) {
-			List<CommendRewardPerformanceEntity> lists= commendRewardService.findAllPerformances (id);
-			req.setAttribute("performanceLists", lists);
-			
-		}
-		
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		if (StringUtils.isNotEmpty(id)) {
-			List<CommendRewardAuditEntity> lists= commendRewardService.findAllAudits (id);
-			req.setAttribute("auditingLists", lists);
-		;
-		}
-		if (StringUtils.isNotEmpty(id)) {
-			List<CommendRewardRecommendEntity> lists= commendRewardService.findAllRecommends(id);
-			req.setAttribute("recommendLists", lists);
-			
-		}
+
 		String isView =  req.getParameter("isView");
-		req.setAttribute("isView", isView);
-		req.setAttribute("id", id);
-		return new ModelAndView("com/inspection/commendreward/mainDetial");
+		if(isView.equals("true")){
+			return new ModelAndView("com/inspection/commendreward/mainDetial");
+		} else {
+			return new ModelAndView("com/inspection/commendreward/processCommendReward");
+		}
+	}
+
+	// 处理页面
+	@RequestMapping(params = "modifyProcess")
+	@ResponseBody
+	public AjaxJson modifyProcess(CommendRewardMain commendRewardMain, HttpServletRequest req) {
+		AjaxJson result = new AjaxJson();
+		String id = req.getParameter("id");
+		commendRewardMain.setId(id);
+
+		MultipartHttpServletRequest multipartRequest = (MultipartHttpServletRequest) req;
+		MultipartFile file = multipartRequest.getFile("shiJiFile");
+		if (file != null && !file.isEmpty()) {
+			String fileName = file.getOriginalFilename();
+			try {
+				commendRewardMain.setShiJiFilename(fileName);
+				commendRewardMain.setShiJiCaiLiao(file.getBytes());
+			} catch (Exception e) {
+				e.printStackTrace();
+				result.setMsg("文件保存失败，请重试");
+				return result;
+			}
+		}else {
+            CommendRewardMain main = commendRewardService.findEntity(CommendRewardMain.class, id);
+            if (main!=null){
+                commendRewardMain.setShiJiFilename(main.getShiJiFilename());
+                commendRewardMain.setShiJiCaiLiao(main.getShiJiCaiLiao());
+            }
+        }
+
+		List<String> names = commendRewardMain.getNames();
+		List<String> scores = commendRewardMain.getScores();
+		List<JunShiXunLian> xunLian = new ArrayList<JunShiXunLian>();
+		for( int i = 0 ; i < names.size() ; i++) {
+			if (names.get(i) != null) {
+				xunLian.add(new JunShiXunLian(names.get(i),scores.get(i)));
+			}
+		}
+
+		commendRewardMain.setXunLianString(JSONArray.fromObject(xunLian).toString());
+		commendRewardMain.setBiaoZhangString(JSONArray.fromObject(commendRewardMain.getBiaoZhang()).toString());
+
+		commendRewardService.saveOrUpdate(commendRewardMain);
+		result.setMsg("保存成功");
+		return result;
 	}
 }

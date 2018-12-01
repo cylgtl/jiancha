@@ -6,6 +6,7 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.inspection.entity.soldierselect.SoldierSelectMain;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Scope;
@@ -26,12 +27,9 @@ import org.jeecgframework.platform.constant.Globals;
 import org.jeecgframework.web.common.hqlsearch.HqlGenerateUtil;
 import org.jeecgframework.web.system.controller.BaseController;
 import org.jeecgframework.web.system.entity.TSDepart;
-import org.jeecgframework.web.system.entity.TSTypegroup;
 import org.jeecgframework.web.system.entity.TSUser;
 import org.jeecgframework.web.system.service.SystemService;
 
-import com.inspection.entity.cadresadjust.AdjustEntity;
-import com.inspection.entity.officerleave.OfficerLeaveEntity;
 import com.inspection.entity.soldierselect.SoldierSelectAssessmentEntity;
 import com.inspection.entity.soldierselect.SoldierSelectAuditingEntity;
 import com.inspection.entity.soldierselect.SoldierSelectEntity;
@@ -90,6 +88,7 @@ public class SoldierSelectController extends BaseController {
 			}
 		}
 		request.setAttribute("departList", list);
+		request.setAttribute("currentDepart",SessionUtils.getCurrentUser().getCurrentDepart());
 		return new ModelAndView("com/inspection/soldierselect/soldierSelectList");
 	}
 
@@ -107,6 +106,9 @@ public class SoldierSelectController extends BaseController {
 		CriteriaQuery cq = new CriteriaQuery(SoldierSelectEntity.class, dataGrid);
 		//默认查询当前用户所属部门下数据
 		String departId = soldierselect.getDepartId();
+		if (StringUtils.isEmpty(request.getParameter("search"))){
+			departId = request.getParameter("currentDepartId");
+		}
 		/*boolean isAdmin = SessionUtils.isAdminRole("admin");
 		boolean isManager = SessionUtils.isAdminRole("manager");
 		
@@ -340,208 +342,44 @@ public class SoldierSelectController extends BaseController {
 	}
 
 	/**
-	 * 表彰奖励处理详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMain")
-	public ModelAndView viewMain(SoldierSelectEntity SoldierSelectEntity, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		/*if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
-		}*/
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		TSTypegroup pxgroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","px_type");
-		if(pxgroup!=null){
-			req.setAttribute("pxList", pxgroup.getTSTypes());
-		}
-		req.setAttribute("residuald", id);
-		return new ModelAndView("com/inspection/soldierselect/main");
-	}
-	
-	/**
-	 * 表彰奖励个人基本信息详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewMyselfInfo")
-	public ModelAndView viewMyselfInfo(SoldierSelectEntity SoldierSelect, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			SoldierSelect = soldierselectService.findEntity(SoldierSelectEntity.class, id);
-			req.setAttribute("soldierSelectPage", SoldierSelect);
-		}
-		//表彰奖励-提名类型
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","nor_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/soldierselect/myselfInfo");
-		}else{
-			return new ModelAndView("com/inspection/soldierselect/myselfInfoDetial");
-			
-		}
-	}
-	
-	
-	/**
-	 * 表彰奖励个人平时表现详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewPerformance")
-	public ModelAndView viewPerformance(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldierSelectPerformanceEntity> lists= soldierselectService.findAllPerformances (id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("residualId", id);
-		}
-		
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/soldierselect/performance");
-		}else{
-			return new ModelAndView("com/inspection/soldierselect/performanceDetial");
-			
-		}
-		
-	}
-	
-	
-	/**
-	 * 表彰奖励上级意见结果详情
-	 * @param soldierLeave
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewAuditing")
-	public ModelAndView viewAuditing(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldierSelectAuditingEntity> lists= soldierselectService.findAllAudits (id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/soldierselect/auditing");
-		}else{
-			return new ModelAndView("com/inspection/soldierselect/auditingDetial");
-		}
-		
-	}
-	/**
-	 * 民族评议/推荐
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewResidualRecommend")
-	public ModelAndView viewResidualRecommend(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldierSelectRecommendEntity> lists= soldierselectService.findAllRecommends(id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		TSTypegroup pxgroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","px_type");
-		if(pxgroup!=null){
-			req.setAttribute("pxList", pxgroup.getTSTypes());
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/soldierselect/soldierSelectRecommend");
-		}else{
-			return new ModelAndView("com/inspection/soldierselect/soldierSelectRecommendDetial");
-		}
-		
-	}
-	
-	/**
-	 * 考核结果
-	 * @param req
-	 * @return
-	 */
-	@RequestMapping(params = "viewAssessment")
-	public ModelAndView viewAssessment(HttpServletRequest req) {
-		String id = req.getParameter("id");
-		String funname = req.getParameter("funname");
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldierSelectAssessmentEntity> lists= soldierselectService.findAlltAssessments(id);
-			req.setAttribute("lists", lists);
-			req.setAttribute("officerId", id);
-		}
-		if(StringUtils.isEmpty(funname)){
-			return new ModelAndView("com/inspection/soldierselect/assessment");
-		}else{
-			return new ModelAndView("com/inspection/soldierselect/assessmentDetial");
-		}
-		
-	}
-	
-	/**
-	 * 表彰奖励处理详情
-	 * @param soldierLeave
+	 * 查看或处理页面
 	 * @param req
 	 * @return
 	 */
 	@RequestMapping(params = "viewMainDetial")
-	public ModelAndView viewMainDetial(SoldierSelectEntity SoldierSelect, HttpServletRequest req) {
-		String id = StringUtils.isNotEmpty(req.getParameter("id"))?req.getParameter("id"):SoldierSelect.getId();
-		
-		/*if (StringUtils.isNotEmpty(id)) {
-			officerLeave = officerLeaveService.findEntity(OfficerLeaveEntity.class, id);
-			req.setAttribute("officerLeavePage", officerLeave);
-		}*/
+	public ModelAndView viewMainDetial(SoldierSelectEntity entity, HttpServletRequest req) {
+		String id = StringUtils.isNotEmpty(req.getParameter("id"))?req.getParameter("id"):entity.getId();
+
 		if (StringUtils.isNotEmpty(id)) {
-			SoldierSelect = soldierselectService.findEntity(SoldierSelectEntity.class, id);
-			req.setAttribute("soldierSelectPage", SoldierSelect);
+			SoldierSelectMain result = soldierselectService.findEntity(SoldierSelectMain.class, id);
+			if (result == null){
+				result = new SoldierSelectMain();
+			}
+
+			entity = soldierselectService.findEntity(SoldierSelectEntity.class, id);
+			result.setEntity(entity);
+			req.setAttribute("soldierSelectPage", result);
 		}
-		
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldierSelectPerformanceEntity> lists= soldierselectService.findAllPerformances (id);
-			req.setAttribute("performanceLists", lists);
-		}
-		
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup!=null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		TSTypegroup pxgroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","px_type");
-		if(pxgroup!=null){
-			req.setAttribute("pxList", pxgroup.getTSTypes());
-		}
-		
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldierSelectAuditingEntity> lists= soldierselectService.findAllAudits (id);
-			req.setAttribute("auditingLists", lists);
-		}
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldierSelectRecommendEntity> lists= soldierselectService.findAllRecommends(id);
-			req.setAttribute("recommendLists", lists);
-			
-		}
-		if (StringUtils.isNotEmpty(id)) {
-			List<SoldierSelectAssessmentEntity> lists= soldierselectService.findAlltAssessments(id);
-			req.setAttribute("assessmentLists", lists);
-		
-		}
-		String isView =  req.getParameter("isView");
-		req.setAttribute("isView", isView);
+
+		String isView = req.getParameter("isView");
 		req.setAttribute("id", id);
-		return new ModelAndView("com/inspection/soldierselect/mainDetial");
+		if(isView.equals("true")){
+			return new ModelAndView("com/inspection/soldierselect/mainDetial");
+		} else {
+			return new ModelAndView("com/inspection/soldierselect/processSoldierSelect");
+		}
+	}
+
+	// 士官选取调整-处理页面
+	@RequestMapping(params = "modifyProcess")
+	@ResponseBody
+	public AjaxJson modifyProcess(SoldierSelectMain soldierSelectMain, HttpServletRequest req) {
+		AjaxJson result = new AjaxJson();
+		String id = req.getParameter("id");
+		soldierSelectMain.setId(id);
+
+		soldierselectService.saveOrUpdate(soldierSelectMain);
+		result.setMsg("保存成功");
+		return result;
 	}
 }

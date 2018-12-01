@@ -6,6 +6,7 @@ import java.util.List;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.inspection.entity.officerleave.OfficerLeaveMain;
 import org.apache.log4j.Logger;
 import org.jeecgframework.core.common.hibernate.qbc.CriteriaQuery;
 import org.jeecgframework.core.common.model.json.AjaxJson;
@@ -16,7 +17,6 @@ import org.jeecgframework.platform.constant.Globals;
 import org.jeecgframework.web.common.hqlsearch.HqlGenerateUtil;
 import org.jeecgframework.web.system.controller.BaseController;
 import org.jeecgframework.web.system.entity.TSDepart;
-import org.jeecgframework.web.system.entity.TSType;
 import org.jeecgframework.web.system.entity.TSTypegroup;
 import org.jeecgframework.web.system.entity.TSUser;
 import org.jeecgframework.web.system.service.DepartService;
@@ -99,6 +99,7 @@ public class SoldierLeaveController extends BaseController {
 			}
 		}
 		request.setAttribute("departList", list);
+		request.setAttribute("currentDepart",SessionUtils.getCurrentUser().getCurrentDepart());
 		return new ModelAndView("com/inspection/leave/soldierLeaveList");
 	}
 
@@ -116,6 +117,9 @@ public class SoldierLeaveController extends BaseController {
 		CriteriaQuery cq = new CriteriaQuery(SoldierLeaveEntity.class, dataGrid);
 		//默认查询当前用户所属部门下数据
 		String departId = soldierLeave.getDepartId();
+		if (StringUtils.isEmpty(request.getParameter("search"))){
+			departId = request.getParameter("currentDepartId");
+		}
 		
 		/*boolean isAdmin = SessionUtils.isAdminRole("admin");
 		boolean isManager = SessionUtils.isAdminRole("manager");*/
@@ -265,113 +269,41 @@ public class SoldierLeaveController extends BaseController {
 		result.setMsg("保存成功");
 		return result;
 	}
-	
-	
-	
-	
-	
-	
-	/******************************页面跳转处理**********************************/
-	@RequestMapping(params = "main")
-	public ModelAndView main(SoldierLeaveEntity soldierLeave, HttpServletRequest req) {
-		if (StringUtils.isNotEmpty(soldierLeave.getId())) {
-			soldierLeave = soldierLeaveService.findEntity(SoldierLeaveEntity.class, soldierLeave.getId());
-			req.setAttribute("soldierLeavePage", soldierLeave);
-		}
-		
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup != null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		return new ModelAndView("com/inspection/leave/transaction/main");
-	}
-	
-	@RequestMapping(params = "viewMain")
-	public ModelAndView viewMain(SoldierLeaveEntity soldierLeave, HttpServletRequest req) {
-		String id = req.getParameter("id");
-		if (StringUtils.isNotEmpty(id)) {
-			soldierLeave = soldierLeaveService.findEntity(SoldierLeaveEntity.class, id);
-			req.setAttribute("soldierLeavePage", soldierLeave);
-		}
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup != null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		
-		return new ModelAndView("com/inspection/leave/transaction/main");
-	}
-	
-	
+
 	@RequestMapping(params = "viewDetailMain")
-	public ModelAndView viewDetailMain(SoldierLeaveEntity soldierLeave, HttpServletRequest req) {
-		String id = req.getParameter("id");
+	public ModelAndView viewDetailMain(SoldierLeaveEntity soldierEntity, HttpServletRequest req) {
+		String id = StringUtils.isNotEmpty(req.getParameter("id"))?req.getParameter("id"):soldierEntity.getId();
 		String isView =  req.getParameter("isView");
-		
 		if (StringUtils.isNotEmpty(id)) {
-			soldierLeave = soldierLeaveService.findEntity(SoldierLeaveEntity.class, id);
-			req.setAttribute("soldierLeavePage", soldierLeave);
+			OfficerLeaveMain result = soldierLeaveService.findEntity(OfficerLeaveMain.class, id);
+			if(result == null){
+				result = new OfficerLeaveMain();
+			}
+			soldierEntity = soldierLeaveService.findEntity(SoldierLeaveEntity.class, id);
+			result.setSoldierEntity(soldierEntity);
+			req.setAttribute("soldierLeavePage", result);
 		}
-		TSType tsType = systemService.findUniqueByProperty(TSType.class, "id", soldierLeave.getLeaveType());
-		if(null != tsType){
-			soldierLeave.setLeaveType(tsType.getTypename());
-		}
-		
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup != null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		
-		List<SoldierPerformanceEntity> perFormancelist = systemService.findByHql("from SoldierPerformanceEntity where leaveId=?", new Object[]{id});
-		List<SoldierAuditingEntity>  auditList = systemService.findByHql("from SoldierAuditingEntity where leaveId=?", new Object[]{id});
-		
-		req.setAttribute("perFormancelist", perFormancelist);
-		req.setAttribute("auditList", auditList);
 		req.setAttribute("id", id);
-		req.setAttribute("isView", isView);
-		return new ModelAndView("com/inspection/leave/transaction/viewDetailMain");
-	}
-	
-	@RequestMapping(params = "viewJb")
-	public ModelAndView viewJb(SoldierLeaveEntity soldierLeave, HttpServletRequest req) {
-		if (StringUtils.isNotEmpty(soldierLeave.getId())) {
-			soldierLeave = soldierLeaveService.findEntity(SoldierLeaveEntity.class, soldierLeave.getId());
-			req.setAttribute("soldierLeavePage", soldierLeave);
+		if(isView.equals("true")){
+			return new ModelAndView("com/inspection/leave/viewDetailMain");
+		} else {
+			return new ModelAndView("com/inspection/leave/processSoldierLeave");
 		}
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","leave_type");
-		if(typegroup != null){
-			req.setAttribute("leaveTypeList", typegroup.getTSTypes());
-		}
-		
-		return new ModelAndView("com/inspection/leave/transaction/jb");
 	}
-	
-	
-	@RequestMapping(params = "viewGrbx")
-	public ModelAndView viewGrbx(HttpServletRequest req) {
-		//请假流程ID
-		String leaveId = req.getParameter("leaveId");
-		
-		List<SoldierPerformanceEntity> list = systemService.findByHql("from SoldierPerformanceEntity where leaveId=?",  new Object[] { leaveId});
-		req.setAttribute("list", list);
-		req.setAttribute("leaveId", leaveId);
-		
-		TSTypegroup typegroup=systemService.findUniqueByProperty(TSTypegroup.class,"typegroupcode","bx_type");
-		if(typegroup != null){
-			req.setAttribute("typeList", typegroup.getTSTypes());
-		}
-		
-		return new ModelAndView("com/inspection/leave/transaction/grbx");
-	}
-	
-	@RequestMapping(params = "viewYjjg")
-	public ModelAndView viewYjjg( HttpServletRequest req) {
-		//请假流程ID
-		String leaveId = req.getParameter("leaveId");
-				
-		List<SoldierAuditingEntity> list = systemService.findByHql("from SoldierAuditingEntity where leaveId=?",  new Object[] { leaveId});
-		req.setAttribute("list", list);
-		req.setAttribute("leaveId", leaveId);
-		
-		return new ModelAndView("com/inspection/leave/transaction/yjjg");
+
+	/**
+	 * 处理页面
+	 * @param req
+	 * @return
+	 */
+	@RequestMapping(params = "modifyProcess")
+	@ResponseBody
+	public AjaxJson modifyProcess(OfficerLeaveMain officerLeaveMain, HttpServletRequest req) {
+		AjaxJson result = new AjaxJson();
+		String id = req.getParameter("id");
+		officerLeaveMain.setId(id);
+		soldierLeaveService.saveOrUpdate(officerLeaveMain);
+		result.setMsg("保存成功");
+		return result;
 	}
 }
