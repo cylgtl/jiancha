@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="war" name="jiancha:war">
+    <output-path>$PROJECT_DIR$/target</output-path>
+    <root id="archive" name="bms-project.war">
+      <element id="artifact" artifact-name="jiancha:war exploded" />
+    </root>
+  </artifact>
+</component>
