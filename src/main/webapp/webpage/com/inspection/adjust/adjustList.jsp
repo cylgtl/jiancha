@@ -5,25 +5,25 @@
   <div region="center" style="padding:1px;">
   
    <c:if test="${isOtherRole eq 1 || not empty vistor}">
-  <t:datagrid name="adjustList" autoLoadData="true"  title="干部调整" actionUrl="adjustController.do?datagrid" idField="id" fit="true">
+  <t:datagrid name="adjustList" autoLoadData="true"  title="干部配备调整" actionUrl="adjustController.do?datagrid&currentDepartId=${currentDepart.orgCode}" idField="id" fit="true">
    <t:dgCol title="编号" field="id" hidden="true"></t:dgCol>
    <t:dgCol title="姓名" field="name" width="150"  align="center"></t:dgCol>
    <t:dgCol title="部职别" field="jobTitle" width="350" align="center"></t:dgCol>
-   <t:dgCol title="操作" field="opt" width="70"></t:dgCol>
+   <t:dgCol title="操作" field="opt" width="70" align="center"></t:dgCol>
 	<t:dgFunOpt funname="lookDetail(id)" title="查看" />
   </t:datagrid>
   </c:if>
   
   
    <c:if test="${not empty manager || not empty admin}">
-  <t:datagrid name="adjustList"  autoLoadData="true"  title="干部调整" actionUrl="adjustController.do?datagrid" idField="id" fit="true">
+  <t:datagrid name="adjustList"  autoLoadData="true"  title="干部配备调整" actionUrl="adjustController.do?datagrid&currentDepartId=${currentDepart.orgCode}" idField="id" fit="true">
    <t:dgCol title="编号" field="id" hidden="true"></t:dgCol>
    <t:dgCol title="姓名" field="name" width="150" align="center"></t:dgCol>
    <t:dgCol title="部门" field="departId" hidden="true" ></t:dgCol>
    <t:dgCol title="部职别" field="jobTitle" width="350" align="center"></t:dgCol>
-   <t:dgCol title="操作" field="opt" width="100"></t:dgCol>
+   <t:dgCol title="操作" field="opt" width="100" align="center"></t:dgCol>
+      <t:dgFunOpt funname="lookDetail(id)" title="查看" />
 	<t:dgFunOpt funname="operateDetail(id,departId)"    title="处理" />
-	<t:dgFunOpt funname="lookDetail(id)" title="查看" />
 	<t:dgToolBar title="录入" icon="icon-add"  url="adjustController.do?addorupdate" height="400"  funname="add"/>
 	 <t:dgFunOpt title="删除" funname="deleteConfirm(id,departId)"/> 
     <t:dgToolBar title="编辑"  icon="icon-edit"  url="adjustController.do?addorupdate" height="400" funname="update"/>
@@ -32,18 +32,33 @@
   
   <div  style="padding: 3px; height: 40px">
     <div name="searchColums" style="float: left; padding-left: 15px;">
-              <span style="vertical-align:middle;display:-moz-inline-box;display:inline-block;width: 80px;text-align:right;" title="营部">营部: </span>
-              <select name="depart_parent" id="" onchange="findDepartByParentId(this.value)" style="width: 80px">
+              <span style="vertical-align:middle;display:-moz-inline-box;display:inline-block;width: 80px;text-align:right;" title="营/部">营/部: </span>
+              <select name="depart_parent" onchange="findDepartByParentId(this.value)" style="width: 150px">
                   <option value="">全部</option>
                   <c:forEach var="depart" items="${departList}">
-                      <option value="${depart.orgCode}">${depart.departname}</option>
+                      <c:choose>
+
+                         <c:when test="${not empty currentDepart && not empty currentDepart.TSPDepart && currentDepart.TSPDepart.orgCode == depart.orgCode }">
+                             <option value="${depart.orgCode}"  selected="selected" >${depart.departname}</option>
+                         </c:when>
+
+                         <c:otherwise>
+                            <option value="${depart.orgCode}">${depart.departname}</option>
+                         </c:otherwise>
+
+                      </c:choose>
+
                   </c:forEach>
                </select>
         
-              <span style="vertical-align:middle;display:-moz-inline-box;display:inline-block;width: 80px;text-align:right;" title="连部">连部: </span>
-              <select name="departId" id="departId"  style="width: 80px">
-                  <option value="">全部</option>
+              <span style="vertical-align:middle;display:-moz-inline-box;display:inline-block;width: 80px;text-align:right;" title="连/科">连/科: </span>
+              <select name="departId" id="departId"  style="width: 150px">
+                  <option value=${currentDepart.orgCode}>${currentDepart.departname}</option>
                </select>
+
+               <select name="search" id="search"  style="width: 150px" hidden="true">
+                 <option value="search">search</option>
+              </select>
         
          <a href="#" class="easyui-linkbutton" iconCls="icon-search" onclick="adjustListsearch();" style="text-align: center;width: 140px">查询</a>
     </div>
@@ -84,20 +99,17 @@
 	 	    }
 	 	    createwindow(title,url,width,height);
 	    }else{
-	    	alert("您没有权限处理其他连部的数据");
+	    	alert("您没有权限处理其他连/科的数据");
 	    }
 	   
 	}
 	
-	
-	
 	function operateDetail(id,departId) {
 		if(admin || sessionDepartsCode.indexOf(departId) > -1){
-			createwindow('干部调整配备',
-					"adjustController.do?viewMain&id=" + id,
-					1024, 380);
+            location.href = "adjustController.do?viewDetailMain&id=" + id + "&isView=false";
+
 		}else{
-			alert("您没有权限处理其他连部的数据");
+			alert("您没有权限处理其他连/科的数据");
 		}
 	}
 	
@@ -105,39 +117,45 @@
 		if(admin || sessionDepartsCode.indexOf(departId) > -1){
 			delObj('adjustController.do?del&id='+id,'adjustList');
 		}else{
-			alert("您没有权限处理其他连部的数据");
+			alert("您没有权限处理其他连/科的数据");
 		}
 		
 	}
 	function lookDetail(id) {
-		location.href = "adjustController.do?viewDetailMain&id=" + id;
+		location.href = "adjustController.do?viewDetailMain&id=" + id+ "&isView=true";
     }
- 
- 
-	
-	function findDepartByParentId(departId){
-		if("" == departId){
-			$("#departId").html("<option value=\"\">全部</option>");
-		}else{
-			$.ajax({
-				async : false,
-				cache : false,
-				type : 'POST',
-				url : "departController.do?findDepartByParentId&parentId="+departId+"&random="+Math.random(),
-				error : function() {// 请求失败处理函数
-				},
-				success : function(data) {
-					var list = $.parseJSON(data); 
-					if(list){
-						var html ="<option value=\"\">全部</option>";
-						$.each(list, function(i, depart){  
-						    html = html +"<option value=\""+depart.orgCode+"\">"+depart.departname+"</option>";
-						}); 
-						$("#departId").html(html);
-					}
-				}
-			});
-		}
-	}
-	
+
+	function findDepartByParentId(departId, currentDepartId = "", currentDepart = ""){
+         if("" != departId){
+             $.ajax({
+                 async : false,
+                 cache : false,
+                 type : 'POST',
+                 url : "departController.do?findDepartByParentId&parentId="+departId+"&random="+Math.random(),
+                 error : function() {// 请求失败处理函数
+                 },
+                 success : function(data) {
+                     var list = $.parseJSON(data);
+                     if(list){
+                         var html ="<option value=\"\">全部</option>";
+                         $.each(list, function(i, depart){
+                             if (depart.orgCode == currentDepartId){
+                                 html = html +"<option selected=\"selected\" value=\""+depart.orgCode+"\">"+depart.departname+"</option>";
+                             } else {
+                                 html = html +"<option value=\""+depart.orgCode+"\">"+depart.departname+"</option>";
+                             }
+
+                         });
+                         $("#departId").html(html);
+                     }
+                 }
+             });
+         }
+     }
+
+
+     window.onload = function(){
+         findDepartByParentId("${currentDepart.TSPDepart.orgCode}","${currentDepart.orgCode}","${currentDepart.departname}")
+     }
 </script>
+
